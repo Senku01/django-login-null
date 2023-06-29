@@ -12,5 +12,6 @@ urlpatterns= [
     path('success',success, name =' success'),
     # URL pattern for verifying the user's account with the provided auth_token
     path('verify/<auth_token>', verify, name='verify'),
-    path('error', error_page , name = 'error' )
+    path('error', error_page , name = 'error' ),
+    # path('auth/',include('social_django.urls', name = 'social')),
 ]
