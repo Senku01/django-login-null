@@ -6,17 +6,44 @@ from .models import *
 import uuid
 from django.conf import settings
 from django.core.mail import send_mail
-
+from django.contrib.auth import authenticate,login
+from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 
 # Create your views here.
 
 # View for the home page
+
+@login_required
 def home(request):
     return render(request , 'home.html')
 
 
 # View for the login attempt page
 def login_attempt(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user_obj = User.objects.filter(username = username).first()
+        if user_obj is None:
+            messages.success(request, 'User not found')
+            return redirect('/accounts/login')
+        
+        profile_obj = Profile.objects.filter(user = user_obj).first()
+
+        if not profile_obj.is_verified:
+            messages.success(request,'Profile is not verified check your Mail ')
+            return redirect('/accounts/login')
+        
+        user = authenticate(username = username , password =password)
+        if user in None:
+            messages.success(request, 'Wrong password')
+            return redirect('/accounts/login')
+        
+        login(request,user)
+        return redirect('/')
+
     return render(request , 'login.html')
 
 
@@ -52,9 +79,9 @@ def register_attempt(request):
             profile_obj.save()
 
             # Send a verification email to the user
-            send_mail_register(email,auth_token)
+            send_mail_register(email, auth_token)
             
-            return redirect('/token')
+            return redirect('/token_auth')
 
 
         except Exception as e:
@@ -79,9 +106,13 @@ def token_auth(request):
 
 def verify(request , auth_token):
     try:
-        profile_obj =  Profile.objects.filter(auth_token).first()
+        profile_obj =  Profile.objects.filter(auth_token = auth_token).first()
+
         if profile_obj:
             # Set the account as verified
+            if profile_obj.is_verified:
+                messages.success(request , 'Your Account is already verified')
+                return redirect('/accounts/login')
             profile_obj.is_verified = True
             profile_obj.save()
             messages.success(request , 'Your account has been verified')
@@ -90,6 +121,7 @@ def verify(request , auth_token):
             return redirect('/error')
     except Exception as e:
         print(e)
+        return redirect('/')
 
 # View for the error page
 def error_page(request):
@@ -98,10 +130,10 @@ def error_page(request):
 
 # Helper function to send a registration verification email
 def send_mail_register(email, token):
-    subject = 'Your account need to be verified'
-    message = f'Hi To verify your account http://127.0.0.1:8000/verify/{token}'
-    email_from  = settings.EMAIL_HOST_USER
-    reciptant_list = [email]
+    subject = 'Your account needs to be verified'
+    message = f'Hi, to verify your account, please click on the following link: http://127.0.0.1:8000/verify/{token}'
+    email_from = settings.EMAIL_HOST_USER
+    recipient_list = [email]
 
-    send_mail(subject,message,email_from, reciptant_list)
+    send_mail(subject , message , email_from, recipient_list)
 

@@ -22,10 +22,9 @@
                     
                     <div class="sign-up">
                         Don't have an account? <a href="{% url 'register_attempt' %}">Create One</a>
-                        {% load social_django %}
-                        <a href="{% url 'social:begin' 'google-oauth2' %}" class="btn btn-google btn-block">
-                            <i class="fab fa-google"></i> Sign in with Google
-                        </a>
+                        {% load socialaccount %}
+                        <br>
+                        <a href="{% provider_login_url 'google'%}?next=/">Login with Google</a>
 
                     </div>
                 </form>

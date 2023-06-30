@@ -33,7 +33,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 SITE_ID = 1
-LOGIN_REDIRECT_URL = "/"
+# LOGIN_REDIRECT_URL = "/"
 # Application definition
 
 INSTALLED_APPS = [
@@ -148,25 +148,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'Your Email Address'
-EMAIL_HOST_PASSWORD = 'Password for it '
+EMAIL_HOST_USER = os.getenv('EMAIL_ADDRESS')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_PASSWORD')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = 'your-client-id'
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = 'your-client-secret'
-SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['profile', 'email']
-SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {'access_type': 'offline'}
-SOCIAL_AUTH_PIPELINE = (
-    'social_core.pipeline.social_auth.social_details',
-    'social_core.pipeline.social_auth.social_uid',
-    'social_core.pipeline.social_auth.auth_allowed',
-    'social_core.pipeline.social_auth.social_user',
-    'social_core.pipeline.user.get_username',
-    'social_core.pipeline.user.create_user',
-    'social_core.pipeline.social_auth.associate_user',
-    'social_core.pipeline.social_auth.load_extra_data',
-    'social_core.pipeline.user.user_details',
-    'your_project.your_app.pipeline.require_email',  # Create this pipeline step to handle email requirement
-)
 
 
 # Default primary key field type
