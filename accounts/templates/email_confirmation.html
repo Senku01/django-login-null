@@ -1,0 +1,8 @@
+{% autoescape off %}
+
+Welcome to Null-Jobs
+Hello {{ name }}!!
+Please confirm your email by clicking on the following link.
+Confirmation link : http://localhost:8000{% url 'activate' uidb64=uid token=token %}
+
+{% endautoescape %}

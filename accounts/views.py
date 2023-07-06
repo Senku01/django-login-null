@@ -1,139 +1,183 @@
-from accounts.models import Profile
-from django.shortcuts import render,redirect
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from django.contrib.auth.models import User
 from django.contrib import messages
-from .models import * 
-import uuid
-from django.conf import settings
-from django.core.mail import send_mail
-from django.contrib.auth import authenticate,login
-from django.contrib.auth.decorators import login_required
-from django.urls import reverse
-
+from django.core.mail import EmailMessage, send_mail
+from django.core.serializers.json import DjangoJSONEncoder
+from login_site import settings
+from django.contrib.sites.shortcuts import get_current_site
+from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import force_bytes, force_text
+from django.contrib.auth import authenticate, login, logout
+from . tokens import generate_token
+import random
+import datetime
+import json 
 # Create your views here.
 
 # View for the home page
 
-@login_required
 def home(request):
-    return render(request , 'home.html')
+    return render(request, "index.html")
 
-
-# View for the login attempt page
-def login_attempt(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        user_obj = User.objects.filter(username = username).first()
-        if user_obj is None:
-            messages.success(request, 'User not found')
-            return redirect('/accounts/login')
+def signup(request):
+    if request.method == "POST":
+        # Retrieve form data from the POST request.
+        username = request.POST['username']
+        fname = request.POST['fname']
+        lname = request.POST['lname']
+        email = request.POST['email']
+        pass1 = request.POST['pass1']
+        pass2 = request.POST['pass2']
         
-        profile_obj = Profile.objects.filter(user = user_obj).first()
-
-        if not profile_obj.is_verified:
-            messages.success(request,'Profile is not verified check your Mail ')
-            return redirect('/accounts/login')
+        if User.objects.filter(username=username):
+            # Check if the username already exists in the User model.
+            # If it exists, display an error message and redirect to the home page.
+            messages.error(request, "Username already exist! Please try some other username.")
+            return redirect('home')
         
-        user = authenticate(username = username , password =password)
-        if user in None:
-            messages.success(request, 'Wrong password')
-            return redirect('/accounts/login')
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "Email Already Registered!!")
+            return redirect('home')
         
-        login(request,user)
-        return redirect('/')
-
-    return render(request , 'login.html')
-
-
-# View for the registration attempt page
-def register_attempt(request):
-
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        email = request.POST.get('email')
-        password = request.POST.get('password')
+        if len(username)>20:
+            # Check if the username length is greater than 20 characters.
+            # If it is, display an error message and redirect to the home page.
+            messages.error(request, "Username must be under 20 charcters!!")
+            return redirect('home')
         
-        # Using Try catch block for best practices
-        try:
-            # Check if the username is already taken
-            if User.objects.filter(username = username).first():
-                messages.success(request , 'Username is taken')
-                return redirect('/register')
+        if pass1 != pass2:
+            # Check if the passwords provided in the form do not match.
+            # If they don't match, display an error message and redirect to the home page.
+            messages.error(request, "Passwords didn't matched!!")
+            return redirect('home')
+        
+        if not username.isalnum():
+            # Check if the username contains only alphanumeric characters.
+            # If it doesn't, display an error message and redirect to the home page.
+            messages.error(request, "Username must be Alpha-Numeric!!")
+            return redirect('home')
+        
+        # Create a new user using the User model's create_user() method.
+        myuser = User.objects.create_user(username, email, pass1)
+        myuser.first_name = fname
+        myuser.last_name = lname
+        # myuser.is_active = False
+        myuser.is_active = False
+        myuser.save()
+        messages.success(request, "Your Account has been created succesfully!! Please check your email to confirm your email address in order to activate your account.")
+        
+        # Welcome Email
+        subject = "Welcome to Null- Null Login!!"
+        message = "Hello " + myuser.first_name + "!! \n" + "Welcome to Null!! \nThank you for visiting our website\n. We have also sent you a confirmation email, please confirm your email address. \n\nThanking You\n Null jobs"        
+        from_email = settings.EMAIL_HOST_USER
+        to_list = [myuser.email]
+        send_mail(subject, message, from_email, to_list, fail_silently=True)
+        
+        # Email Address Confirmation Email
+        current_site = get_current_site(request)
+        email_subject = "Confirm your Email @ Null - Null Login!!"
+        message2 = render_to_string('email_confirmation.html',{
             
-            # Check if the email is already taken
-            if User.objects.filter(email = email).first():
-                messages.success(request,'Email is Taken ')
-                return redirect('/register')
-            
-
-            # Create a new User object and save it
-            user_obj = User(username = username ,email = email)
-            user_obj.set_password(password)
-            user_obj.save()
-
-            # Generate an authentication token and create a new Profile object
-            auth_token = str(uuid.uuid4())
-            profile_obj = Profile.objects.create(user = user_obj , auth_token = auth_token)
-            profile_obj.save()
-
-            # Send a verification email to the user
-            send_mail_register(email, auth_token)
-            
-            return redirect('/token_auth')
+            'name': myuser.first_name,
+            'domain': current_site.domain,
+            'uid': urlsafe_base64_encode(force_bytes(myuser.pk)),
+            'token': generate_token.make_token(myuser)
+        })
+        email = EmailMessage(
+        email_subject,
+        message2,
+        settings.EMAIL_HOST_USER,
+        [myuser.email],
+        )
+        email.fail_silently = True
+        email.send()
+        
+        return redirect('signin')
+        
+        
+    return render(request, "signup.html")
 
 
-        except Exception as e:
-            print(e)
+def activate(request,uidb64,token):
+    # This function handles the account activation process when a user clicks on the activation link.
+    # Using Try block for better practices
 
-
-    return render(request , 'register.html')
-
-# View for the success page after successful registration
-
-def success(request):
-    return render(request , 'success.html')
-
-# View for the token authentication page
-
-def token_auth(request):
-    return render(request , 'token_auth.html')
-
-
-
-# View for verifying the user's account using the authentication token
-
-def verify(request , auth_token):
     try:
-        profile_obj =  Profile.objects.filter(auth_token = auth_token).first()
+        uid = force_text(urlsafe_base64_decode(uidb64))
+        myuser = User.objects.get(pk=uid)
+        # Decode the uidb64 parameter to get the user's ID.
+        # If decoding fails, an exception is raised.
+    except (TypeError,ValueError,OverflowError,User.DoesNotExist):
+        myuser = None
 
-        if profile_obj:
-            # Set the account as verified
-            if profile_obj.is_verified:
-                messages.success(request , 'Your Account is already verified')
-                return redirect('/accounts/login')
-            profile_obj.is_verified = True
-            profile_obj.save()
-            messages.success(request , 'Your account has been verified')
-            return redirect('/login')
+    if myuser is not None and generate_token.check_token(myuser,token):
+        myuser.is_active = True
+        # user.profile.signup_confirmation = True
+        myuser.save()
+        login(request,myuser)
+        messages.success(request, "Your Account has been activated!!")
+        return redirect('signin')
+    else:
+        return render(request,'activation_failed.html')
+    
+# OTP 
+def otp_verify(request):
+    # if request.method == "POST":
+    #     entered_otp = request.POST.get('otp')
+    #     saved_otp = request.session.get('otp')
+    #     expiry_time = request.session.get('expiry_time')
+
+    #     if entered_otp == saved_otp and datetime.datetime.now() < expiry_time:
+
+    #         del request.session['otp']
+    #         del request.session['expiry_time']
+
+    #         return redirect('index.html')
+    #     else:
+    #         return redirect(request,'otp_verify.html' , {'error':'Invalid OTP'})
+    
+    # otp = str(random.randint(100000, 999999))
+    # expiry_time = datetime.datetime.now() + datetime.timedelta(minutes= 5)
+    # request.session['otp']  = otp 
+    # request.session['expiry_time'] = expiry_time
+
+    # expiry_time_str = expiry_time.strftime('%Y-%m-%d %H:%M:%S')
+
+    # context = {
+    #     'otp': otp,
+    #     'expiry_time':expiry_time_str,
+    # }
+
+
+    # return HttpResponse(json.dumps(context, cls=DjangoJSONEncoder), content_type='application/json')
+    return render(request, 'otp_verify.html')
+
+
+def signin(request):
+    # This function handles the signin process when a user submits the signin form.
+    if request.method == 'POST':
+        username = request.POST['username']
+        pass1 = request.POST['pass1']
+        
+        user = authenticate(username=username, password=pass1)
+        # Authenticate the user using the provided username and password.
+        # If the credentials are valid, it returns a User object, otherwise None.
+        if user is not None:
+            login(request, user)
+            fname = user.first_name
+            return render(request, "index.html",{"fname":fname})
         else:
-            return redirect('/error')
-    except Exception as e:
-        print(e)
-        return redirect('/')
-
-# View for the error page
-def error_page(request):
-    return render(request,'error.html')
+            messages.error(request, "Bad Credentials!!")
+            return redirect('home')
+    
+    return render(request, "signin.html")
 
 
-# Helper function to send a registration verification email
-def send_mail_register(email, token):
-    subject = 'Your account needs to be verified'
-    message = f'Hi, to verify your account, please click on the following link: http://127.0.0.1:8000/verify/{token}'
-    email_from = settings.EMAIL_HOST_USER
-    recipient_list = [email]
-
-    send_mail(subject , message , email_from, recipient_list)
+def signout(request):
+        # This function handles the signout process when a user clicks on the signout button.
+    logout(request)
+    messages.success(request, "Logged Out Successfully!!")
+    return redirect('home')
 

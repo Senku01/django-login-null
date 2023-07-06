@@ -1,17 +1,13 @@
 from django.contrib import admin
+from django.urls import path, include
+from . import views
 
-from django.urls import path
-
-from .views import *
-
-urlpatterns= [
-    path('', home , name = 'home'),
-    path('register' , register_attempt, name ='register_attempt'),
-    path('account/login/' , login_attempt, name = 'login_attempt'),
-    path('token', token_auth, name = 'token_auth'),
-    path('success',success, name =' success'),
-    # URL pattern for verifying the user's account with the provided auth_token
-    path('verify/<auth_token>', verify, name='verify'),
-    path('error', error_page , name = 'error'),
-    # path('auth/',include('social_django.urls', name = 'social')),
+urlpatterns = [
+    path('', views.home, name='home'),
+    path('signup', views.signup, name='signup'),
+    path('hello',views.hello,name = 'hola'),
+    path('activate/<uidb64>/<token>', views.activate, name='activate'),
+    path('signin', views.signin, name='signin'),
+    path('signout', views.signout, name='signout'),
+    path('otp_verify',views.otp_verify, name='otp_verify'),
 ]

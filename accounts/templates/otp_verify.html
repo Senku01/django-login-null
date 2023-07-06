@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OTP Verification</title>
+    <!-- Add any necessary CSS or JavaScript links or stylesheets -->
+</head>
+<body>
+    <h1>OTP Verification</h1>
+    
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+    
+    <p>Your OTP: {{ otp }}</p>
+    <p>Expires at: {{ expiry_time }}</p>
+    
+    <form method="POST" action="{% url 'otp_verify' %}">
+        {% csrf_token %}
+        <label for="otp">Enter OTP:</label>
+        <input type="text" id="otp" name="otp" required>
+        <br>
+        <input type="submit" value="Submit">
+    </form>
+
+</body>
+</html>
