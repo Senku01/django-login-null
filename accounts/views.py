@@ -10,6 +10,9 @@ from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes, force_text
 from django.contrib.auth import authenticate, login, logout
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from . tokens import generate_token
 import random
 import datetime
@@ -20,6 +23,12 @@ import json
 
 def home(request):
     return render(request, "index.html")
+
+
+
+
+
+
 
 def signup(request):
     if request.method == "POST":
@@ -100,7 +109,7 @@ def signup(request):
     return render(request, "signup.html")
 
 
-def activate(request,uidb64,token):
+def activate(request,uidb64,token,backend='django.contrib.auth.backends.ModelBackend'):
     # This function handles the account activation process when a user clicks on the activation link.
     # Using Try block for better practices
 
@@ -116,7 +125,7 @@ def activate(request,uidb64,token):
         myuser.is_active = True
         # user.profile.signup_confirmation = True
         myuser.save()
-        login(request,myuser)
+        login(request,myuser,backend='django.contrib.auth.backends.ModelBackend')
         messages.success(request, "Your Account has been activated!!")
         return redirect('signin')
     else:
@@ -167,7 +176,7 @@ def signin(request):
         if user is not None:
             login(request, user)
             fname = user.first_name
-            return render(request, "index.html",{"fname":fname})
+            return render(request, "index.html",{"username":username})
         else:
             messages.error(request, "Bad Credentials!!")
             return redirect('home')
